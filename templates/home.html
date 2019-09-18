@@ -1,0 +1,183 @@
+{% extends "template.html" %}
+{% block content %}
+	<div class="jumbo">
+		<h2>SOURCE IMAGE SET WINDOW</h2>
+	</div>
+    <div class="container">
+		<div class="row upload_area">
+			<div class="col-md-3">
+				<div class="upload-btn-wrapper">
+				  	<button class="btn_upload">Upload an image</button>
+					<input type='file' name="imageToUpload" onchange="readURL(this);" id="image" accept="image/*"/>
+				</div>
+			</div>
+
+			<div class="col-md-2">
+				<button class="btn-info btn_process" onclick="ProcessImage();">Process</button>
+			</div>
+
+			<div class="col-md-5">
+				<div class="progress">
+				  <div class="progress-bar progress-bar-striped progress-bar-animated active" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div>
+				</div>
+			</div>
+
+			<div class="col-md-2">
+				<button class="btn-success btn_save" onclick="SaveImage();">Save</button>
+			</div>
+		</div>
+		<div class="row">
+			<select id="category" class="js-example-tags form-control">
+
+			</select>
+		</div>
+
+		<br/><br/>
+
+		<div class="row">
+    		<img id="blah" src="" alt="" style="width:100%; height:auto;"/>
+		</div>
+
+	</div>
+	<script>
+		var x1,y1,x2,y2;
+		var sel_width, sel_height = 0;
+		var area = null;
+
+		var fileNode = document.querySelector('#image'),
+        form = new FormData(),
+        xhr = new XMLHttpRequest();
+		//xhr.responseType = 'json';
+		fileNode.addEventListener('change', function( event ) {
+			event.preventDefault();
+
+			var files = this.files;
+			console.log(files)
+			for (var i = 0, numFiles = files.length; i < numFiles; i++) {
+				var file = files[i];
+
+				// check mime
+				if (['image/png', 'image/jpg'].indexOf(file.type) == -1) {
+					// mime type error handling
+				}
+
+				form.append('file', file, file.name);
+
+				xhr.onload = function() {
+					if (xhr.status === 200) {
+						// do sth with the response
+					}
+				}
+
+				xhr.open('POST', '/upload');
+				xhr.onload  = function() {
+				   var jsonResponse = xhr.response;
+				   console.log(jsonResponse);
+				};
+				xhr.send(form);
+			}
+		});
+
+		function readURL(input) {
+				if (input.files && input.files[0]) {
+					var reader = new FileReader();
+
+					reader.onload = function (e) {
+						$('#blah')
+							.attr('src', e.target.result)
+					};
+
+					reader.readAsDataURL(input.files[0]);
+				}
+			}
+		$(document).ready(function () {
+		  area = $('#blah').imgAreaSelect({
+				handles: true, instance: true,
+				onSelectEnd: function (img, selection) {
+					//alert('x1: ' + selection.x1 + '; y1: ' + selection.y1);
+					x1 = selection.x1;
+					y1 = selection.y1;
+					x2 = selection.x2;
+					y2 = selection.y2;
+					sel_width = selection.width;
+					sel_height = selection.height;
+				}
+			});
+		});
+
+		function getCategories(){
+			var selected_val = $("#category").val();
+			return selected_val;
+		}
+
+		function ProcessImage(){
+			var image_src = $('#blah').attr('src');
+			if(image_src == null && image_src != ""){
+				alert("Please upload image!");
+				return false;
+			}
+			if(!area.getSelection().width || sel_width == 0){
+				alert('Please select area!');
+				return false;
+			}
+			console.log(area.getSelection());
+			$.ajax({
+				url: '/crop',
+				data: {x1:x1, y1:y1, x2:x2, y2:y2},
+				type: 'POST',
+				success: function(response) {
+					$('.progress-bar').css('width', '100%').attr('aria-valuenow', 100);
+					$('#category')
+						.find('option')
+						.remove();
+					var res = JSON.parse(response);
+					var categories = res.category;
+					for(i=0; i<categories.length; i++){
+						$('#category')
+							 .append($("<option></option>")
+										.attr("value",categories[i])
+										.text(categories[i]));
+					}
+				},
+				error: function(error) {
+					console.log(error);
+				}
+			});
+		}
+
+		$(".js-example-tags").select2({
+		  	tags: true,
+		   	allowClear: true,
+		});
+
+		function SaveImage(){
+			$('#blah').imgAreaSelect({hide:true});
+			sel_width = 0;
+			var values = getCategories();
+			var categories = JSON.stringify(values);
+			console.log(categories);
+
+			$.ajax({
+				url: '/save',
+				data: {category:categories},
+				type: 'POST',
+				success: function(response) {
+					$('#category')
+						.find('option')
+						.remove();
+					var res = JSON.parse(response);
+					var categories = res.category;
+					for(i=0; i<categories.length; i++){
+						$('#category')
+							 .append($("<option></option>")
+										.attr("value",categories[i])
+										.text(categories[i]));
+					}
+				},
+				error: function(error) {
+					console.log(error);
+				}
+			});
+		}
+    </script>
+{% endblock %}
